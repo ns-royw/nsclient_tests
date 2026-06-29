@@ -1,8 +1,8 @@
 
 // Test_NsIpv4StringToAddress.cpp : This test is used to validate NsIpv4StringToAddress() in ENG-1059544 / PR-8762
 #include <ntstatus.h>
+#define WIN32_NO_STATUS
 #include <windows.h>
-
 #include <ip2string.h>
 #include <stdio.h>
 
@@ -51,7 +51,6 @@ static BOOL ParseIPv4Field(const CHAR* src_str, ULONG* out_value, ULONG* buf_rem
 NTSTATUS NsIpv4StringToAddressA(
     _In_ PCSTR src_str,
     _In_ ULONG src_buflen,
-    _Out_ PCSTR* terminator,
     _Out_ struct in_addr* addr) {
 
     NTSTATUS ret = STATUS_SUCCESS;
@@ -60,7 +59,7 @@ NTSTATUS NsIpv4StringToAddressA(
     int field_count = 0;
     ULONG remain = src_buflen;
 
-    if (NULL == src_str || 0 == src_buflen || NULL == terminator || NULL == addr) {
+    if (NULL == src_str || 0 == src_buflen || NULL == addr) {
         return STATUS_INVALID_PARAMETER;
     }
 
@@ -105,37 +104,26 @@ NTSTATUS NsIpv4StringToAddressA(
         field_count++;
     }
 
-    //if no fields correctly parsed...
+    //reject address if not stricted format: IPv4 address should have 4 fields.
     if (4 != field_count) {
         ret = STATUS_DATA_ERROR;
     }
 
     if (STATUS_SUCCESS == ret) {
-        //if src_str == "192." , addr will be 192.0.0.0
-        //if src_str == "192.168." , addr will be 192.168.0.0
-        //if src_str == "192.168.7" , addr will be 192.168.7.0
-        addr->S_un.S_un_b.s_b1 = fields[0];
-        addr->S_un.S_un_b.s_b2 = fields[1];
-        addr->S_un.S_un_b.s_b3 = fields[2];
-        addr->S_un.S_un_b.s_b4 = fields[3];
-        *terminator = str;
+        addr->S_un.S_un_b.s_b1 = (UCHAR)fields[0];
+        addr->S_un.S_un_b.s_b2 = (UCHAR)fields[1];
+        addr->S_un.S_un_b.s_b3 = (UCHAR)fields[2];
+        addr->S_un.S_un_b.s_b4 = (UCHAR)fields[3];
     }
     return ret;
 }
 
 void Test(PCSTR addr_str) {
-    //NTSTATUS NsIpv4StringToAddressA(
-    //    _In_ PCSTR src_str,
-    //    _In_ ULONG src_buflen,
-    //    _Out_ PCSTR * terminator,
-    //    _Out_ struct in_addr* addr) {
-
     NTSTATUS status = STATUS_UNSUCCESSFUL;
     struct in_addr addr = {};
-    const char* term = NULL;
 
-    status = NsIpv4StringToAddressA(addr_str, strlen(addr_str) + 1, &term, &addr);
-    printf("NsIpv4StringToAddressA(%s) return 0x%08X, ", addr_str, status);
+    status = NsIpv4StringToAddressA(addr_str, strlen(addr_str) + 1, &addr);
+    printf("NsIpv4StringToAddressA(%s) return 0x%08X", addr_str, status);
     if (STATUS_SUCCESS == status) {
         printf(" addr=%u.%u.%u.%u",
             addr.S_un.S_un_b.s_b1,
@@ -149,10 +137,10 @@ void Test(PCSTR addr_str) {
 int main()
 {
     Test("187.228.33.9");
-    Test("192.168.1.");
+    Test("10.0.");
     Test("192.168.1");
-    Test("10.10.");
-    Test("10.10");
+    Test("192.168.1.");
+    Test("192.168.1.in-addr.arpa.");
     Test("1.0.0.139.in-addr.arpa.");
     Test("192.168.1.y");
     Test("192.168.1y");
